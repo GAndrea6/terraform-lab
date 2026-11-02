@@ -30,4 +30,4 @@ jobs:
 
       - name: Container logs
         if: always()
-        run: docker logs apps
+        run: docker logs app

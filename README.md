@@ -140,3 +140,58 @@ None. All resources were created with Terraform.
 - [x] Outputs
 - [x] Modules where useful
 - [x] README
+
+## Application
+
+A small Node.js web service, packaged with Docker.
+
+### Endpoints
+
+| Endpoint | Response |
+|---|---|
+| `/` | Welcome message with the app name and environment |
+| `/health` | `OK` (used for health checks) |
+| `/version` | JSON with name, version and environment |
+
+### Configuration (environment variables)
+
+| Variable | Description | Default |
+|---|---|---|
+| `APP_ENV` | Environment (`development`, `staging`, `production`) | `development` |
+| `PORT` | Port the server listens on | `3000` |
+| `LOG_LEVEL` | `error`, `warn`, `info` or `debug` | `info` |
+| `APP_NAME` | Application name | `final-project` |
+| `APP_VERSION` | Overrides the version from `package.json` | from `package.json` |
+
+No sensitive values are stored in the code. Copy `.env.example` to `.env` for local
+configuration; `.env` is ignored by Git. Real secrets belong in `.env` locally and in
+GitHub Secrets in CI.
+
+### Logging and error handling
+
+- Logs are written to stdout as JSON, one line per event.
+- Unexpected errors return `500`, unknown paths return `404`, non-GET methods return `405`.
+- The server shuts down cleanly on `SIGTERM`.
+
+### Run locally
+
+```
+npm test
+npm start
+curl http://localhost:3000/health
+```
+
+### Run with Docker
+
+```
+docker build -t mia-app .
+docker run -d -p 3000:3000 --env-file .env mia-app
+curl http://localhost:3000/health
+```
+
+Expected response: `OK`
+
+### Continuous integration
+
+On every push, GitHub Actions runs checkout, setup, tests and the Docker build, then
+starts the container and checks `/health` and `/version` with `curl`.
