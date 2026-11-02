@@ -1,0 +1,15 @@
+.git
+.github
+.env
+node_modules
+README.md
+
+# Terraform: non deve finire nell'immagine
+.terraform
+*.tf
+modules
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+.terraform.lock.hcl
+tfplan
