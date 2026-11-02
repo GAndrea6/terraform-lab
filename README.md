@@ -2,8 +2,9 @@
 
 ## Goal
 
-Create the main Azure infrastructure using Terraform (Infrastructure as Code).
-A single `terraform apply` creates most of the infrastructure.
+This project provisions the main Azure infrastructure with Terraform.
+A single `terraform apply` creates the Resource Group, networking, storage,
+container registry, monitoring and a managed identity, organized in reusable modules.
 
 ## Architecture
 
