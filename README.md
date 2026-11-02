@@ -1,12 +1,16 @@
-# Terraform Final Project: Azure Infrastructure
+# Azure Infrastructure (Terraform) + Dockerized App
 
 ## Goal
 
-This project provisions the main Azure infrastructure with Terraform.
-A single `terraform apply` creates the Resource Group, networking, storage,
-container registry, monitoring and a managed identity, organized in reusable modules.
+This project provisions the main Azure infrastructure with Terraform (Infrastructure as Code)
+and contains a small containerized Node.js application with a CI pipeline.
+
+- A single `terraform apply` creates most of the infrastructure.
+- A GitHub Actions workflow tests and builds the application on every push.
 
 ## Architecture
+
+### Azure infrastructure
 
 ```mermaid
 flowchart TD
@@ -20,7 +24,19 @@ flowchart TD
     ID -- Blob Data Contributor --> ST
 ```
 
-## Resources created
+### Delivery pipeline
+
+```mermaid
+flowchart TD
+    G[GitHub] --> H[GitHub Actions]
+    H --> I[Docker build + test]
+    I --> J[ACR]
+    J --> K[Azure]
+```
+
+## Part 1: Terraform infrastructure
+
+### Resources created
 
 | Resource | Terraform name | Purpose |
 |---|---|---|
@@ -37,30 +53,12 @@ flowchart TD
 | Role assignment AcrPull | `azurerm_role_assignment.acr_pull` | Identity can pull images from ACR |
 | Role assignment Blob | `azurerm_role_assignment.storage_blob` | Identity can read/write blobs |
 
-## Project structure
+### Modules
 
-```
-terraform-lab/
-├── providers.tf        # Terraform and Azure provider configuration
-├── variables.tf        # Input variables
-├── main.tf             # Resource Group, modules and identity
-├── outputs.tf          # Values printed after apply
-├── terraform.tfvars    # Real values (not committed)
-├── .gitignore
-├── README.md
-└── modules/
-    ├── networking/     # VNet, Subnet, NSG
-    ├── storage/        # Storage Account and container
-    ├── acr/            # Container Registry
-    └── monitoring/     # Log Analytics and Application Insights
-```
+Each module has `variables.tf` (inputs), `main.tf` (resources) and `outputs.tf` (outputs):
+`networking`, `storage`, `acr`, `monitoring`.
 
-## Modules
-
-Each module has three files: `variables.tf` (inputs), `main.tf` (resources), `outputs.tf` (outputs).
-Modules keep the code organized and reusable.
-
-## Variables
+### Variables
 
 | Variable | Description | Default |
 |---|---|---|
@@ -69,16 +67,14 @@ Modules keep the code organized and reusable.
 | `environment` | Environment name | `dev` |
 | `location` | Azure region | `northeurope` |
 
-Note: the region `westeurope` was rejected by Azure
-("region not accepting new customers"), so the project uses `northeurope`.
-
-Real values go in `terraform.tfvars`:
+Real values go in `terraform.tfvars` (not committed):
 
 ```hcl
-subscription_id = "My-Sub"
+subscription_id = "YOUR-SUBSCRIPTION-ID"
+location        = "northeurope"
 ```
 
-## Outputs
+### Outputs
 
 | Output | Description |
 |---|---|
@@ -89,59 +85,45 @@ subscription_id = "My-Sub"
 | `log_analytics_workspace_id` | ID of the Log Analytics workspace |
 | `app_identity_client_id` | Client ID of the Managed Identity |
 
-## Prerequisites
+### Prerequisites
 
 - Terraform 1.5 or newer
 - Azure CLI
 - An Azure subscription
 
-## How to use
+### How to use
 
-1. Sign in to Azure and get the subscription ID:
+```
+az login
+az account show --query id -o tsv
+terraform init
+terraform fmt -recursive
+terraform validate
+terraform plan -out=tfplan
+terraform apply tfplan
+```
 
-   ```
-   az login
-   az account show --query id -o tsv
-   ```
+To delete everything and avoid costs:
 
-2. Put the subscription ID in `terraform.tfvars`.
+```
+terraform destroy
+```
 
-3. Run Terraform:
-
-   ```
-   terraform init
-   terraform fmt -recursive
-   terraform validate
-   terraform plan -out=tfplan
-   terraform apply tfplan
-   ```
-
-4. When finished, delete everything to avoid costs:
-
-   ```
-   terraform destroy
-   ```
-
-## Security notes
+### Security notes
 
 - The Storage Account is private (no public blob access) and requires TLS 1.2.
 - ACR admin user is disabled; access uses a Managed Identity with the `AcrPull` role.
 - No passwords or secrets are stored in the code.
-- `terraform.tfvars` and `*.tfstate` files are in `.gitignore` and are not committed.
+- `terraform.tfvars`, `.env` and `*.tfstate` files are in `.gitignore` and are not committed.
 
-## Manual actions in the Azure portal
+### Manual actions in the Azure portal
 
 None. All resources were created with Terraform.
 
-## Checklist
+Note: the region `westeurope` was rejected by Azure ("region not accepting new
+customers"), so the project uses `northeurope`.
 
-- [x] IaC
-- [x] Variables
-- [x] Outputs
-- [x] Modules where useful
-- [x] README
-
-## Application
+## Part 2: Application
 
 A small Node.js web service, packaged with Docker.
 
@@ -193,5 +175,36 @@ Expected response: `OK`
 
 ### Continuous integration
 
-On every push, GitHub Actions runs checkout, setup, tests and the Docker build, then
-starts the container and checks `/health` and `/version` with `curl`.
+On every push, GitHub Actions (`.github/workflows/ci.yml`) runs:
+
+1. **Checkout**: downloads the code
+2. **Setup**: installs Node.js 20
+3. **Test**: runs `npm test`
+4. **Docker build**: builds the image
+5. **Test container**: starts the container and checks `/health` and `/version` with `curl`
+
+## Project structure
+
+| File | Purpose |
+|---|---|
+| `providers.tf`, `variables.tf`, `main.tf`, `outputs.tf` | Terraform root configuration |
+| `modules/` | Terraform modules (networking, storage, acr, monitoring) |
+| `.terraform.lock.hcl` | Locked provider versions |
+| `index.js` | Node.js web service |
+| `test.js` | Automated tests for the endpoints |
+| `package.json` | App metadata and scripts |
+| `Dockerfile` | Builds the application image |
+| `.dockerignore` | Files excluded from the image |
+| `.env.example` | Template for environment variables |
+| `.github/workflows/ci.yml` | CI pipeline |
+
+## Checklist
+
+- [x] IaC
+- [x] Variables
+- [x] Outputs
+- [x] Modules where useful
+- [x] README
+- [x] Endpoints `/`, `/health`, `/version`
+- [x] Logging and error handling
+- [x] Environment variables and external configuration
