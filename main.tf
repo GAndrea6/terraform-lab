@@ -80,3 +80,30 @@ resource "azurerm_role_assignment" "storage_blob" {
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
+
+data "azurerm_client_config" "current" {}
+
+# 7. Database PostgreSQL
+module "database" {
+  source              = "./modules/database"
+  name                = "psql-${local.prefix}-${local.suffix}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = coalesce(var.db_location, var.location)
+  tags                = local.tags
+  admin_login         = var.db_admin_login
+  database_name       = "appdb"
+  allowed_ip          = var.my_ip
+}
+
+# 8. Key Vault: custodisce la password del database
+module "keyvault" {
+  source              = "./modules/keyvault"
+  name                = "kv-${local.prefix}-${local.suffix}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+  tags                = local.tags
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  admin_object_id     = data.azurerm_client_config.current.object_id
+  reader_object_ids   = [azurerm_user_assigned_identity.app.principal_id]
+  db_password         = module.database.admin_password
+}

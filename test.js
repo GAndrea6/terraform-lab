@@ -34,6 +34,13 @@ server.listen(0, async () => {
     const data = JSON.parse(version.body);
     check("/version contiene la versione", version.status === 200 && Boolean(data.version));
 
+    // Nei test non c'è nessun database configurato: l'app deve dirlo, senza crash
+    const dbHealth = await get(port, "/health/db");
+    check("/health/db risponde 503 senza database", dbHealth.status === 503);
+
+    const notes = await get(port, "/notes");
+    check("/notes risponde 503 senza database", notes.status === 503);
+
     const missing = await get(port, "/non-esiste");
     check("percorso sconosciuto risponde 404", missing.status === 404);
 
